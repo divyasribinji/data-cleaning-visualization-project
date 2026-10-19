@@ -2,49 +2,63 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, roc_curve, auc
 
-# 1. Load the raw dataset
-df = pd.read_csv('raw_dataset.csv')
 
-# 2. Clean data fields (Removes exact row duplicates)
-df = df.drop_duplicates()
+# 1. Load your clean dataset
+df = pd.read_csv(r'C:\Users\mahim\OneDrive\Desktop\cleaned_dataset.csv')
 
-# 3. Clean metric columns (Filter out impossible outlier rows)
-df = df[(df['Age'] > 0) & (df['Age'] < 100)]
-df = df[(df['Exam_Score'] >= 0) & (df['Exam_Score'] <= 100)]
+# 2. Create a Classification Target Variable (Pass = 1, Fail = 0)
+# Students scoring 70% or higher are marked as passed
+df['Pass'] = (df['Exam_Score'] >= 70).astype(int)
 
-# 4. Handle remaining missing value entries using column medians
-df['Age'] = df['Age'].fillna(df['Age'].median())
-df['Study_Hours'] = df['Study_Hours'].fillna(df['Study_Hours'].median())
-df['Exam_Score'] = df['Exam_Score'].fillna(df['Exam_Score'].median())
+# 3. Separate Features (X) and Target (y)
+X = df[['Age', 'Study_Hours']]
+y = df['Pass']
 
-# 5. Export clean database file
-df.to_csv('cleaned_dataset.csv', index=False)
+# 4. Train/Test Split (80% training data, 20% testing data)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 5. Train the Random Forest Model
+model = RandomForestClassifier(random_state=42)
+model.fit(X_train, y_train)
+
+# 6. Make Predictions and Calculate Accuracy
+y_pred = model.predict(X_test)
+y_prob = model.predict_proba(X_test)[:, 1]
+accuracy = accuracy_score(y_test, y_pred)
+print(f"Model Training Complete! Test Accuracy: {accuracy * 100:.2f}%")
 
 # ==========================================
-# 6. GENERATE THE VISUAL DASHBOARD IMAGE
+# 7. VISUALIZE PERFORMANCE (Confusion Matrix & ROC Curve)
 # ==========================================
-# Set up a clean grid style for the graphs
-sns.set_theme(style="whitegrid")
-
-# Create a window layout containing two plots side by side
+sns.set_theme(style="white")
 fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-fig.suptitle('Student Performance Dashboard', fontsize=16, fontweight='bold')
+fig.suptitle('Machine Learning Model Evaluation Dashboard', fontsize=16, fontweight='bold')
 
-# Plot A: Assigned to the first window slot (axes[0])
-sns.scatterplot(data=df, x='Study_Hours', y='Exam_Score', hue='Age', palette='magma', ax=axes[0])
-axes[0].set_title('Study Hours vs. Exam Scores', fontsize=12, fontweight='bold')
-axes[0].set_xlabel('Hours Studied')
-axes[0].set_ylabel('Exam Score (%)')
+# Plot 1: Confusion Matrix
+cm = confusion_matrix(y_test, y_pred)
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=axes[0], cbar=False,
+            xticklabels=['Predicted Fail', 'Predicted Pass'],
+            yticklabels=['Actual Fail', 'Actual Pass'])
+axes[0].set_title('Confusion Matrix', fontsize=12, fontweight='bold')
 
-# Plot B: Assigned to the second window slot (axes[1])
-sns.histplot(data=df, x='Exam_Score', kde=True, color='crimson', ax=axes[1])
-axes[1].set_title('Overall Score Distribution', fontsize=12, fontweight='bold')
-axes[1].set_xlabel('Exam Score (%)')
-axes[1].set_ylabel('Number of Students')
+# Plot 2: ROC Curve
+fpr, tpr, thresholds = roc_curve(y_test, y_prob)
+roc_auc = auc(fpr, tpr)
+axes[1].plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC Curve (Area = {roc_auc:.2f})')
+axes[1].plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+axes[1].set_xlim([0.0, 1.0])
+axes[1].set_ylim([0.0, 1.05])
+axes[1].set_xlabel('False Positive Rate')
+axes[1].set_ylabel('True Positive Rate')
+axes[1].set_title('Receiver Operating Characteristic (ROC) Curve', fontsize=12, fontweight='bold')
+axes[1].legend(loc="lower right")
 
 plt.tight_layout()
 
-# Force save the visual image file directly onto your Desktop workspace path
-plt.savefig(r'C:\Users\mahim\OneDrive\Desktop\data_insights_dashboard.png', dpi=300, bbox_inches='tight')
-print("Dashboard image created successfully on your Desktop!")
+# Save dashboard evaluation directly to your Desktop screen
+plt.savefig(r'C:\Users\mahim\OneDrive\Desktop\ml_performance_dashboard.png', dpi=300, bbox_inches='tight')
+print("ML Evaluation dashboard image created successfully on your Desktop!")
